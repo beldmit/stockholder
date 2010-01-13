@@ -254,6 +254,8 @@ class Player:
 	
 	def mini_report(self, msg, params = ()):
 		"""Минимальная информация о текущем состоянии"""
+		print game.cost
+		print self.stocks
 		print msg, "\nТекущая стоимость: "
 		for color in game.colors:
 			print colored("%6s: цена %3d, на руках %d" % (color, game.cost[color], self.stocks[color]), color, attrs = ['bold'] )
