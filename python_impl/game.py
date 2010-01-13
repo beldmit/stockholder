@@ -67,7 +67,7 @@ def set_strategies():
 
 	players[1].compare   = players[1].compare_avg_delta
 #	players[1].buy_after = players[1].buy_by_2colors
-	players[0].interactive = 1
+#	players[0].interactive = 1
 	return
 
 
@@ -254,13 +254,14 @@ def cost_compare(a, b):
 		return -1
 	return 0
 
-def __main__():
+if __name__ == '__main__':
+	import game
 	score = {0 : 0, 1 : 0}
 
 	for i in range(1000):
-		init()
-		deal()
-		set_strategies()
+		game.init()
+		game.deal()
+		game.set_strategies()
 
 		#Эталонная партия
 		#
@@ -271,14 +272,13 @@ def __main__():
 	#	game.players[0].money = 190
 
 		for i in range(small + large):
-			for player in players:
+			for player in game.players:
 				player.make_move()
 		#	raw_input()
 
-		print cost
 		result = []
-		for player in players:
-			result.append(stocks2money(player.stocks, cost) + player.money)
+		for player in game.players:
+			result.append(stocks2money(player.stocks, game.cost) + player.money)
 			print "+++", player
 			print "+++", player.idx, result[player.idx]
 		
@@ -289,6 +289,3 @@ def __main__():
 
 	print score
 
-if __name__ == '__main__':
-	__main__()
-	
