@@ -47,16 +47,13 @@ def init():
 	random.shuffle(S)
 	random.shuffle(L)
 
-	return
-
-def deal():
 	"""
 	Раздаем карты игрокам
 	"""
-	for i in range (num_players):
-		players.append(player.Player(i))
-		players[i].cards.extend(deal_small(i))
-		players[i].cards.extend(deal_large(i))
+	for player_id in range (num_players):
+		players.append(player.Player(player_id))
+		players[player_id].cards.extend(S[small*player_id:small*(player_id+1)])
+		players[player_id].cards.extend(L[large*player_id:large*(player_id+1)])
 	return
 
 def set_strategies():
@@ -71,14 +68,6 @@ def set_strategies():
 	return
 
 
-def deal_small(player_id):
-	"""Раздача малых карт"""
-	return S[small*player_id:small*(player_id+1)]
-
-def deal_large(player_id):
-	"""Раздача больших карт"""
-	return L[large*player_id:large*(player_id+1)]
-	
 def evaluate_small_card(variant, orig_cost):
 	"""Обработка хода малой карты"""
 	new_cost = orig_cost.copy()
@@ -86,17 +75,17 @@ def evaluate_small_card(variant, orig_cost):
 		new_cost[change[0]] = new_cost[change[0]] + change[1]
 	return new_cost
 
-def evaluate_large_card(card, variant, orig_cost):
+def evaluate_large_card(variant, orig_cost):
 	"""Обработка хода большой карты"""
 	new_cost = orig_cost.copy()
 	round_func = half_round_down
-	if card[1] == "*2":
+	if variant[0][1] == "*2":
 		new_cost[variant[0][0]] = new_cost[variant[0][0]]*2
 		new_cost[variant[1][0]] = round_func(new_cost[variant[1][0]])
-	elif card[1] == ":2":
+	elif variant[0][1] == ":2":
 		new_cost[variant[0][0]] = round_func(new_cost[variant[0][0]])
 		new_cost[variant[1][0]] = new_cost[variant[1][0]]*2
-	elif card[1] == "+100": 
+	elif variant[0][1] == 100: 
 		for change in variant:
 			new_cost[change[0]] = new_cost[change[0]] + change[1]
 	return new_cost
@@ -106,7 +95,7 @@ def evaluate_card(card, variant, orig_cost):
 	if card[2] == 'small':
 		return evaluate_small_card(variant, orig_cost)
 	else:	
-		return evaluate_large_card(card, variant, orig_cost)
+		return evaluate_large_card(variant, orig_cost)
 
 def make_player_move(player_id, card, variant):
 	"""Меняем состояние игры в зависимости от хода игрока"""	
@@ -247,20 +236,12 @@ def limited_input(msg, bottom, top):
 				break
 	return res
 
-def cost_compare(a, b):
-	if cost[a] > cost[b]:
-		return 1
-	if cost[a] < cost[b]:
-		return -1
-	return 0
-
 if __name__ == '__main__':
 	import game
 	score = {0 : 0, 1 : 0}
 
 	for i in range(1000):
 		game.init()
-		game.deal()
 		game.set_strategies()
 
 		#Эталонная партия
