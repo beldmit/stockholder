@@ -8,20 +8,20 @@ class Player:
 	"""
 	Класс игрока.
 	"""
-	def compare_self(self, all_players, card, new_stocks, new_cost, new_money, cur_best):
+	def compare_self(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Максимизируем свой счет"""
-		test_money = game.stocks2money(new_stocks, new_cost)+new_money
-		return [(test_money > cur_best or cur_best is None), test_money]
+		result = game.stocks2money(new_stocks, new_cost)+new_money
+		return result
 
-	def compare_small_first(self, all_players, card, new_stocks, new_cost, new_money, cur_best):
+	def compare_small_first(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Максимизируем свой счет, предпочитая 
 		раньше расставаться с малыми картами"""
-		test_money = game.stocks2money(new_stocks, new_cost)+new_money
+		result = game.stocks2money(new_stocks, new_cost)+new_money
 		if (card[-1] == 'small'):
-			test_money *= 2 
-		return [(test_money > cur_best or cur_best is None), test_money]
+			result *= 2 
+		return result
 
-	def compare_avg_delta(self, all_players, card, new_stocks, new_cost, new_money, cur_best):
+	def compare_avg_delta(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Оптимизируем отрыв от оппонента"""
 		players = 0
 		delta   = 0
@@ -46,13 +46,50 @@ class Player:
 				delta += delta_money
 		
 		result = test_money - delta//players
+
 		if card[-1] == 'small' and result > 0:
 			result *= 3
 		elif card[-1] == 'small' and result < 0:
 			result //= 3
-		return [(result > cur_best or cur_best is None), result]
+		return result
 
-	def compare_avg_delta_primitive(self, all_players, card, new_stocks, new_cost, new_money, cur_best):
+	def compare_avg_delta_div(self, all_players, card, new_stocks, new_cost, new_money):
+		"""Оптимизируем отрыв от оппонента"""
+		players = 0
+		delta   = 0
+		test_money = 0
+		for player in all_players:
+			if player.idx == self.idx:
+				test_money = self.money
+				for color in game.colors:
+					test_money += new_stocks[color]*max(new_cost[color], game.cost[color])
+			else:
+				players += 1
+				delta_money = player.money
+				for color in game.colors:
+					if new_cost[color] < game.min_price:
+						stocks_to_leave = delta_money//(game.cost[color] - new_cost[color])
+						stocks_left = min(stocks_to_leave, player.stocks[color])
+						delta_money -= stocks_left*(game.cost[color] - new_cost[color])
+						delta += stocks_left * game.min_price
+					else:
+						delta += player.stocks[color] * new_cost[color]
+
+				delta += delta_money
+
+		if delta == 0:
+			delta = 1
+		result = float(test_money) / delta//players
+
+		if card[-1] == 'small' and result > 1:
+			result *= 5
+		elif card[-1] == 'small' and result < 1:
+			result //= 3
+		print card, "%2.5f" % result
+			
+		return result
+
+	def compare_avg_delta_primitive(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Оптимизируем отрыв от оппонента"""
 		players = 0
 		delta   = 0
@@ -71,7 +108,7 @@ class Player:
 			result *= 3
 		elif card[-1] == 'small' and result < 0:
 			result //= 3
-		return [(result > cur_best or cur_best is None), result]
+		return result
 
 #
 # Стратегии покупки после карты
@@ -242,11 +279,11 @@ class Player:
 #					self.compare = self.compare_small_first
 #				else:
 #					self.compare = self.compare_avg_delta
-				success, test_money = self.compare(game.players, card, new_stocks, new_cost, new_money, best['money'])
-				if success:
+				result = self.compare(game.players, card, new_stocks, new_cost, new_money)
+				if best['money'] is None or result > best['money']:
 					best['card']    = card
 					best['variant'] = variant
-					best['money']   = test_money
+					best['money']   = result
 					best['stocks']  = new_stocks.copy()
 					free_money    = new_money
 
@@ -254,8 +291,6 @@ class Player:
 	
 	def mini_report(self, msg, params = ()):
 		"""Минимальная информация о текущем состоянии"""
-		print game.cost
-		print self.stocks
 		print msg, "\nТекущая стоимость: "
 		for color in game.colors:
 			print colored("%6s: цена %3d, на руках %d" % (color, game.cost[color], self.stocks[color]), color, attrs = ['bold'] )
@@ -517,12 +552,12 @@ class Player:
 									break
 							new_stocks[stocks_up] += free_money//cost[stocks_up] 
 							new_money = free_money % cost[stocks_up]
-							success, test_money = self.compare(game.players, card, new_stocks, new_cost, new_money, best['money'])
+							result = self.compare(game.players, card, new_stocks, new_cost, new_money)
 							print card, variant, success, test_money
-							if success:
+							if best['money'] is None or result > best['money']:
 								best['card']    = card
 								best['variant'] = variant
-								best['money']   = test_money
+								best['money']   = result
 								best['stocks']  = new_stocks.copy()
 								free_money    = new_money
 
@@ -539,12 +574,11 @@ class Player:
 					for card in self.cards:
 						for variant in game.variants(card):
 							new_cost  = game.evaluate_card(card, variant, cost)
-							success, test_money = self.compare(game.players, card, new_stocks, new_cost, new_money, best['money'])
-							print "Branch II", card, variant, success, test_money
+							result = self.compare(game.players, card, new_stocks, new_cost, new_money)
 							if success:
 								best['card']    = card
 								best['variant'] = variant
-								best['money']   = test_money
+								best['money']   = result
 								best['stocks']  = new_stocks.copy()
 								free_money    = new_money
 			else:
@@ -554,11 +588,11 @@ class Player:
 				for card in self.cards:
 					for variant in game.variants(card):
 						new_cost  = game.evaluate_card(card, variant, cost)
-						success, test_money = self.compare(game.players, card, new_stocks, new_cost, new_money, best['money'])
+						result = self.compare(game.players, card, new_stocks, new_cost, new_money)
 						if success:
 							best['card']    = card
 							best['variant'] = variant
-							best['money']   = test_money
+							best['money']   = result
 							best['stocks']  = new_stocks.copy()
 							free_money    = new_money
 
