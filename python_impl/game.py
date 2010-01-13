@@ -62,7 +62,7 @@ def set_strategies():
 	players[0].buy_after = players[0].buy_all_equal_money
 	players[1].buy_after = players[1].buy_all_equal_money
 
-	players[1].compare   = players[1].compare_avg_delta
+#	players[1].compare   = players[1].compare_avg_delta_div
 #	players[1].buy_after = players[1].buy_by_2colors
 #	players[0].interactive = 1
 	return
