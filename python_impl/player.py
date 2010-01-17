@@ -162,7 +162,6 @@ class Player:
 		if max_in_color == 0 and self.money == 0:
 			return
 		
-
 		estimations = self.evaluate_colors()
 		colors_to_buy = []
 		sum_price = 0
@@ -177,6 +176,13 @@ class Player:
 					sum_price += game.cost[color]
 					colors_to_buy.append(color)
 
+#		#Плохой вариант.
+#		can_buy = self.money // sum_price
+#		for color in colors_to_buy:
+#			self.stocks[color] += can_buy
+#			self.money -= game.cost[color]*can_buy
+#		return self.buy_cheapest()
+	
 		part_to_invest = self.money//len(colors_to_buy)
 
 		for color in colors_to_buy:
@@ -200,18 +206,11 @@ class Player:
 			return
 
 		sum_price = 0
-		estimations = self.evaluate_colors()
 		colors_to_buy = []
 		for color in colors:
-			if color != max_color and estimations[color] > 0:
+			if color != max_color:
 				sum_price += game.cost[color]
 				colors_to_buy.append(color)
-
-		if sum_price == 0:
-			for color in colors:
-				if color != max_color > 0:
-					sum_price += game.cost[color]
-					colors_to_buy.append(color)
 
 		can_buy = self.money//sum_price
 		for color in colors_to_buy:
