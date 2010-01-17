@@ -54,18 +54,6 @@ def init():
 		players[player_id].cards.extend(L[large*player_id:large*(player_id+1)])
 	return
 
-def set_strategies():
-	"""Установка специфических стратегий для игроков"""
-
-	players[0].buy_after = players[0].buy_all_equal_money
-	players[1].buy_after = players[1].buy_all_equal_money_if_good
-
-#	players[1].compare   = players[1].compare_avg_delta_div
-#	players[1].buy_after = players[1].buy_by_2colors
-	players[0].interactive = 1
-	return
-
-
 def make_player_move(player_id, card, variant):
 	"""Меняем состояние игры в зависимости от хода игрока"""	
 	global last_player 
@@ -104,7 +92,13 @@ if __name__ == '__main__':
 
 	for i in range(1000):
 		game.init()
-		game.set_strategies()
+
+		game.players[0].buy_after =	game.players[0].buy_all_equal_money
+		game.players[1].buy_after =	game.players[1].buy_all_equal_money_if_good
+
+	#	players[1].compare   = players[1].compare_avg_delta_div
+	#	players[1].buy_after = players[1].buy_by_2colors
+		game.players[0].interactive = 1
 
 		#Эталонная партия
 		#
