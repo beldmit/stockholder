@@ -3,6 +3,7 @@
 Реализация стратегий игрока.
 """
 from termcolor import colored
+from card_helpers import *
 import game
 class Player:
 	"""
@@ -10,31 +11,32 @@ class Player:
 	"""
 	def compare_self(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Максимизируем свой счет"""
-		result = game.stocks2money(new_stocks, new_cost)+new_money
+		result = stocks2money(new_stocks, new_cost)+new_money
 		return result
 
 	def compare_small_first(self, all_players, card, new_stocks, new_cost, new_money):
 		"""Максимизируем свой счет, предпочитая 
 		раньше расставаться с малыми картами"""
-		result = game.stocks2money(new_stocks, new_cost)+new_money
+		result = stocks2money(new_stocks, new_cost)+new_money
 		if (card[-1] == 'small'):
 			result *= 2 
 		return result
 
 	def compare_avg_delta(self, all_players, card, new_stocks, new_cost, new_money):
-		"""Оптимизируем отрыв от оппонента"""
+		"""Оптимизируем отрыв от оппонента
+		по абсолютной величине"""
 		players = 0
 		delta   = 0
 		test_money = 0
 		for player in all_players:
 			if player.idx == self.idx:
 				test_money = self.money
-				for color in game.colors:
+				for color in colors:
 					test_money += new_stocks[color]*max(new_cost[color], game.cost[color])
 			else:
 				players += 1
 				delta_money = player.money
-				for color in game.colors:
+				for color in colors:
 					if new_cost[color] < game.min_price:
 						stocks_to_leave = delta_money//(game.cost[color] - new_cost[color])
 						stocks_left = min(stocks_to_leave, player.stocks[color])
@@ -54,19 +56,20 @@ class Player:
 		return result
 
 	def compare_avg_delta_div(self, all_players, card, new_stocks, new_cost, new_money):
-		"""Оптимизируем отрыв от оппонента"""
+		"""Оптимизируем отрыв от оппонента
+		по соотношению"""
 		players = 0
 		delta   = 0
 		test_money = 0
 		for player in all_players:
 			if player.idx == self.idx:
 				test_money = self.money
-				for color in game.colors:
+				for color in colors:
 					test_money += new_stocks[color]*max(new_cost[color], game.cost[color])
 			else:
 				players += 1
 				delta_money = player.money
-				for color in game.colors:
+				for color in colors:
 					if new_cost[color] < game.min_price:
 						stocks_to_leave = delta_money//(game.cost[color] - new_cost[color])
 						stocks_left = min(stocks_to_leave, player.stocks[color])
@@ -90,18 +93,21 @@ class Player:
 		return result
 
 	def compare_avg_delta_primitive(self, all_players, card, new_stocks, new_cost, new_money):
-		"""Оптимизируем отрыв от оппонента"""
+		"""Оптимизируем отрыв от оппонента
+		Примитивный подсчет денег 
+		(банкротство и компенсации учитываются грубо)
+		"""
 		players = 0
 		delta   = 0
 		test_money = 0
 		for player in all_players:
 			if player.idx == self.idx:
 				test_money = self.money
-				for color in game.colors:
+				for color in colors:
 					test_money += new_stocks[color]*new_cost[color]
 			else:
 				players += 1
-				delta += game.stocks2money(new_stocks, new_cost)
+				delta += stocks2money(new_stocks, new_cost)
 
 		result = test_money - delta//players
 		if card[-1] == 'small' and result > 0:
@@ -115,7 +121,10 @@ class Player:
 #
 	def buy_none(self):
 		"""Не покупаем ничего"""
-		pass
+		new_state = []
+		new_state['stocks'] = self.stocks.copy()
+		new_state['money']  = self.money
+		return new_state
 
 	def buy_all_equal_money(self):
 		"""Вкладываем поровну во все акции, кроме тех,
@@ -123,7 +132,7 @@ class Player:
 		max_in_color = 0
 		max_color = None
 
-		for color in game.colors:
+		for color in colors:
 			if self.stocks[color]*game.cost[color] >= max_in_color:
 				max_color = color
 				max_in_color = self.stocks[color]*game.cost[color]
@@ -132,11 +141,48 @@ class Player:
 			return
 		
 		part_to_invest = self.money//3
-		for color in game.colors:
+		for color in colors:
 			if color != max_color:
 				can_buy = part_to_invest//game.cost[color]
 				self.stocks[color] += can_buy
 				self.money -= game.cost[color]*can_buy
+		return self.buy_cheapest()
+	
+	def buy_all_equal_money_if_good(self):
+		"""Вкладываем поровну во все акции, кроме тех,
+		в которые у нас вложено наибольшие деньги"""
+		max_in_color = 0
+		max_color = None
+
+		for color in colors:
+			if self.stocks[color]*game.cost[color] >= max_in_color:
+				max_color = color
+				max_in_color = self.stocks[color]*game.cost[color]
+
+		if max_in_color == 0 and self.money == 0:
+			return
+		
+
+		estimations = self.evaluate_colors()
+		colors_to_buy = []
+		sum_price = 0
+		for color in colors:
+			if color != max_color and estimations[color] > 0:
+				sum_price += game.cost[color]
+				colors_to_buy.append(color)
+
+		if sum_price == 0:
+			for color in colors:
+				if color != max_color > 0:
+					sum_price += game.cost[color]
+					colors_to_buy.append(color)
+
+		part_to_invest = self.money//len(colors_to_buy)
+
+		for color in colors_to_buy:
+			can_buy = part_to_invest//game.cost[color]
+			self.stocks[color] += can_buy
+			self.money -= game.cost[color]*can_buy
 		return self.buy_cheapest()
 	
 	def buy_all_equal(self):
@@ -145,7 +191,7 @@ class Player:
 		max_in_color = 0
 		max_color = None
 
-		for color in game.colors:
+		for color in colors:
 			if self.stocks[color]*game.cost[color] >= max_in_color:
 				max_color = color
 				max_in_color = self.stocks[color]*game.cost[color]
@@ -154,15 +200,23 @@ class Player:
 			return
 
 		sum_price = 0
-		for color in game.colors:
-			if color != max_color:
+		estimations = self.evaluate_colors()
+		colors_to_buy = []
+		for color in colors:
+			if color != max_color and estimations[color] > 0:
 				sum_price += game.cost[color]
+				colors_to_buy.append(color)
+
+		if sum_price == 0:
+			for color in colors:
+				if color != max_color > 0:
+					sum_price += game.cost[color]
+					colors_to_buy.append(color)
 
 		can_buy = self.money//sum_price
-		for color in game.colors:
-			if color != max_color:
-				self.stocks[color] += can_buy
-				self.money -= game.cost[color]*can_buy
+		for color in colors_to_buy:
+			self.stocks[color] += can_buy
+			self.money -= game.cost[color]*can_buy
 
 		return self.buy_cheapest()
 		
@@ -171,7 +225,7 @@ class Player:
 		"""Покупаем самые дешевые акции"""
 		min_price = None
 		min_color = None
-		for color in game.colors:
+		for color in colors:
 			if min_price is None:
 				min_price = game.cost[color]
 				min_color = color
@@ -193,7 +247,7 @@ class Player:
 
 		max_color = None
 		max_estimate = None
-		for color in game.colors:
+		for color in colors:
 		#	estimations[color] += evaluations[color]
 			if max_color is None or evaluations[color] > max_estimate:
 				max_estimate = estimations[color]
@@ -213,7 +267,7 @@ class Player:
 		self.stocks = {}
 		self.cards      = []
 		self.used_cards = [] 
-		for color in game.colors:
+		for color in colors:
 			self.stocks[color] = 1
 
 		#Настройки стратегий по умолчанию
@@ -228,7 +282,7 @@ class Player:
 		if self.money < 0:
 			raise NameError, 'Money < 0' + repr(self)
 
-		for color in game.colors:
+		for color in colors:
 			if self.stocks[color] < 0:
 				raise NameError, 'Stocks ' + color + ' < 0'
 		return
@@ -255,8 +309,8 @@ class Player:
 		free_money  = 0
 
 		for card in self.cards:
-			for variant in game.variants(card):
-				new_cost  = game.evaluate_card(card, variant, cost)
+			for variant in variants(card):
+				new_cost  = evaluate_card(card, variant, cost)
 		
 				if len(self.cards) > 1:
 					stocks_up = None
@@ -275,10 +329,6 @@ class Player:
 					new_money  = self.money
 					new_stocks = self.stocks
 				
-#				if self.idx == 1 and len(self.used_cards) < len(self.cards):
-#					self.compare = self.compare_small_first
-#				else:
-#					self.compare = self.compare_avg_delta
 				result = self.compare(game.players, card, new_stocks, new_cost, new_money)
 				if best['money'] is None or result > best['money']:
 					best['card']    = card
@@ -292,7 +342,7 @@ class Player:
 	def mini_report(self, msg, params = ()):
 		"""Минимальная информация о текущем состоянии"""
 		print msg, "\nТекущая стоимость: "
-		for color in game.colors:
+		for color in colors:
 			print colored("%6s: цена %3d, на руках %d" % (color, game.cost[color], self.stocks[color]), color, attrs = ['bold'] )
 		print " денег: %d" % self.money
 		if 'used' in params:
@@ -303,7 +353,7 @@ class Player:
 		"""Продажа акций"""
 		self.mini_report ("Имущество игрока перед продажей: ")
 
-		for color in game.colors:
+		for color in colors:
 			if prev_stocks is None:	
 				can_sell = self.stocks[color]
 			else:
@@ -312,7 +362,7 @@ class Player:
 			if can_sell == 0: 
 				continue	
 
-			sell = game.limited_input("Продать " + color + ", %d - %d: ", 0, can_sell)
+			sell = limited_input("Продать " + color + ", %d - %d: ", 0, can_sell)
 			self.stocks[color] -= sell
 			self.money += game.cost[color] * sell
 		return self.money
@@ -320,11 +370,11 @@ class Player:
 	def buy_interactive(self):
 		"""Покупка акций"""
 		self.mini_report ("Имущество игрока перед покупкой: ")
-		for color in game.colors:
+		for color in colors:
 			can_buy = self.money//game.cost[color]
 			if can_buy == 0: 
 				continue
-			buy = game.limited_input("Купить " + color + ", %d - %d: ", 0, can_buy)
+			buy = limited_input("Купить " + color + ", %d - %d: ", 0, can_buy)
 			self.stocks[color] += buy
 			self.money -= game.cost[color] * buy
 		return self.money
@@ -347,17 +397,16 @@ class Player:
 			print idx, "-", colored(card, card[0], attrs = ['bold'])
 			idx += 1
 		
-		card_idx = game.limited_input("Выберите карту, %d - %d: ", 0, idx - 1)
+		card_idx = limited_input("Выберите карту, %d - %d: ", 0, idx - 1)
 		best['card'] = self.cards[card_idx]
 
 		#выбрать вариант
-		variants = game.variants(best['card'])
 		idx_var = 0
-		for variant in variants:
+		for variant in variants(best['card']):
 			print idx_var, "-", variant
 			idx_var += 1
 
-		var_idx = game.limited_input("Выберите вариант, %d - %d: ", 0, idx_var - 1)
+		var_idx = limited_input("Выберите вариант, %d - %d: ", 0, idx_var - 1)
 		best['variant'] = variants[var_idx]
 		return best, self.money
 
@@ -371,13 +420,18 @@ class Player:
 				self.buy_interactive()
 				self.mini_report ("Имущество игрока после покупки: ")
 			else:
-				for color in game.colors:
+				for color in colors:
 					if prev_stocks[color] > 0:
 						max_to_sale = min(self.stocks[color], prev_stocks[color])
 						self.stocks[color] -= max_to_sale
 						self.money += max_to_sale*game.cost[color]
 
 				self.buy_after()
+				
+#				new_state = self.buy_after()
+#				self.stocks = new_state['stocks'].copy()
+#				self.money  = new_state['money']
+
 				self.mini_report ("Имущество игрока после хода: ")
 		return
 
@@ -439,7 +493,7 @@ class Player:
 	def evaluate_colors(self):
 		"""Оценка способности остатка карт на руках"""
 		evaluations = {}
-		for color in game.colors:
+		for color in colors:
 			evaluations[color] = 0
 
 		for card in self.cards:
@@ -447,12 +501,12 @@ class Player:
 				if card[1] > 0:
 					evaluations[card[0]] += card[1]
 				else:
-					for color in game.colors:
+					for color in colors:
 						if color != card[0]:
 							evaluations[color] += 90 + card[1]
 			else:
 				if card[1] == ':2':
-					for color in game.colors:
+					for color in colors:
 						if color != card[0]:
 							evaluations[color] += game.cost[color]
 				elif card[1] == '*2':
@@ -496,10 +550,10 @@ class Player:
 			for card in self.cards:
 				if len(best['card']) > 0:
 					break
-				for variant in game.variants(card):
+				for variant in variants(card):
 					sum_our    = 0
 					sum_others = 0
-					for color in game.colors:
+					for color in colors:
 						if color in (variant[0][0], variant[1][0]):
 							sum_our += cost[color]
 						else:
@@ -510,7 +564,7 @@ class Player:
 						best['variant'] = variant
 						break
 
-			for color in game.colors:
+			for color in colors:
 				if color not in (best['variant'][0][0], best['variant'][1][0]):
 					free_money += cost[color]*new_stocks[color]
 					new_stocks[color] = 0
@@ -523,9 +577,8 @@ class Player:
 						new_stocks[color] += 1
 			best['stocks'] = new_stocks
 		else:
-			return self.get_best_move(cost)
 			if len(self.cards) > 1:
-				my_colors = filter(lambda x: self.stocks[x] > 0, game.colors)
+				my_colors = filter(lambda x: self.stocks[x] > 0, colors)
 				evaluations = self.evaluate_colors()
 				to_sell   = []
 				
@@ -537,12 +590,12 @@ class Player:
 					free_money += new_stocks[color]*cost[color]
 					new_stocks[color] = 0
 
-				colors_with_stocks = len(filter(lambda x: new_stocks[x] > 0, game.colors))
+				colors_with_stocks = len(filter(lambda x: new_stocks[x] > 0, colors))
 
 				if colors_with_stocks:
 					for card in self.cards:
-						for variant in game.variants(card):
-							new_cost  = game.evaluate_card(card, variant, cost)
+						for variant in variants(card):
+							new_cost  = evaluate_card(card, variant, cost)
 
 							stocks_up = None
 							for key in new_cost.keys():
@@ -553,7 +606,6 @@ class Player:
 							new_stocks[stocks_up] += free_money//cost[stocks_up] 
 							new_money = free_money % cost[stocks_up]
 							result = self.compare(game.players, card, new_stocks, new_cost, new_money)
-							print card, variant, success, test_money
 							if best['money'] is None or result > best['money']:
 								best['card']    = card
 								best['variant'] = variant
@@ -562,7 +614,7 @@ class Player:
 								free_money    = new_money
 
 				else:
-					colors_to_buy = filter(lambda x: evaluations[x] > 0, game.colors)
+					colors_to_buy = filter(lambda x: evaluations[x] > 0, colors)
 
 					sum_to_buy = 0
 					for color in colors_to_buy:
@@ -572,10 +624,10 @@ class Player:
 						new_stocks[color] = free_money//sum_to_buy
 						new_money         = free_money % sum_to_buy
 					for card in self.cards:
-						for variant in game.variants(card):
-							new_cost  = game.evaluate_card(card, variant, cost)
+						for variant in variants(card):
+							new_cost  = evaluate_card(card, variant, cost)
 							result = self.compare(game.players, card, new_stocks, new_cost, new_money)
-							if success:
+							if best['money'] is None or result > best['money']:
 								best['card']    = card
 								best['variant'] = variant
 								best['money']   = result
@@ -586,10 +638,10 @@ class Player:
 				new_stocks = self.stocks
 
 				for card in self.cards:
-					for variant in game.variants(card):
-						new_cost  = game.evaluate_card(card, variant, cost)
+					for variant in variants(card):
+						new_cost  = evaluate_card(card, variant, cost)
 						result = self.compare(game.players, card, new_stocks, new_cost, new_money)
-						if success:
+						if best['money'] is None or result > best['money']:
 							best['card']    = card
 							best['variant'] = variant
 							best['money']   = result
@@ -599,17 +651,22 @@ class Player:
 		return (best, free_money)
 
 	def buy_by_2colors(self):
+		"""
+		Попытка "двухцветной" стратегии
+		"""
 		evaluations = self.evaluate_colors()
-		good_colors = filter(lambda x: evaluations[x] > 0, game.colors)
+		good_colors = filter(lambda x: evaluations[x] > 0, colors)
 
 		colors_to_buy = []
 		for color in good_colors:
 			colors_to_buy.append(color)
 
-		def compare_by_percent(a,b):
-			if evaluations[a]//game.cost[a] < evaluations[b]//game.cost[b]:
+		def compare_by_percent(first, second):
+			"""Сравниваем по соотношению прироста
+			к текущей цене"""
+			if evaluations[first]//game.cost[first] < evaluations[second]//game.cost[second]:
 				return 1
-			if evaluations[a]//game.cost[a] > evaluations[b]//game.cost[b]:
+			if evaluations[first]//game.cost[first] > evaluations[second]//game.cost[second]:
 				return -1
 			return 0
 
