@@ -57,7 +57,7 @@ def init():
 def set_strategies():
 	"""Установка специфических стратегий для игроков"""
 
-	players[0].buy_after = players[0].buy_all_equal_money_if_good
+	players[0].buy_after = players[0].buy_all_equal_money
 	players[1].buy_after = players[1].buy_all_equal_money_if_good
 
 #	players[1].compare   = players[1].compare_avg_delta_div
