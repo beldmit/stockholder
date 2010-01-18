@@ -53,28 +53,26 @@ def evaluate_card(card, variant, orig_cost):
 def variants(card):
 	"""Все изменения цен от карты"""
 	actions   = []
-	color     = card[0]
-	card_type = card[2]
+	color, delta, card_type = card
 
 	if card_type == "small":
-		delta = card[1]
 		other_delta = ((delta < 0 and 90 + delta) or -90 + delta)
 		for other in colors:
 			if other != color:	
 				actions.append( [[color, delta], [other, other_delta]] )
 
 	elif card_type == 'large': 
-		if card[1] == "*2":
+		if delta == "*2":
 			for other in colors:
 				if other != color:	
 					actions.append( [[color, "*2"], [other, ":2"]] )
 
-		elif card[1] == ":2":
+		elif delta == ":2":
 			for other in colors:
 				if other != color:	
 					actions.append( [[color, ":2"], [other, "*2"]] )
 
-		elif card[1] == "+100": 
+		elif delta == "+100": 
 			other_colors = []
 			for other in colors:
 				if other != color:
@@ -125,7 +123,7 @@ def permutations(input_list):
 def stocks2money(stocks, test_cost):
 	"""Общая сумма денег в акциях"""
 	money = 0
-	for color in stocks.keys():
+	for color in stocks:
 		money += stocks[color] * test_cost[color]
 	return money
 
